@@ -2,7 +2,10 @@
 #include <algorithm>
 #include <execution>
 
+#include <utils/math/vec2.h>
+#include <utils/math/vec3.h>
 #include <utils/index_range.h>
+#include <utils/math/easings.h>
 #include <utils/graphics/colour.h>
 #include <utils/math/geometry/shapes.h>
 #include <utils/oop/disable_move_copy.h>
@@ -11,106 +14,106 @@
 
 #include <SFML/Graphics.hpp>
 
-enum class side { ll, up, rr, dw, no };
-
-void draw_border(const size_t index, const utils::containers::matrix_dyn<utils::graphics::colour::rgba_f>& in, utils::containers::matrix_dyn<utils::graphics::colour::rgba_f>& out, const size_t thickness)
+utils::math::vec2f vec_to_closest_edge(const utils::math::vec2f coords, const utils::math::geometry::polygon& shape)
 	{
-	//size_t index{(blockIdx.x * blockDim.x) + threadIdx.x};
-	size_t x{in.get_x(index)};
-	size_t y{in.get_x(index)};
+	float min{std::numeric_limits<float>::infinity()};
+	utils::math::geometry::segment closest_edge;
 
-	auto size{in.sizes()};
-
-	bool is_ll{x <           thickness};
-	bool is_rr{x >= size.x - thickness};
-	bool is_up{y <           thickness};
-	bool is_dw{y >= size.y - thickness};
-
-	if (is_ll && is_up) { is_ll = x          <= y         ; is_up = y          <= x         ; }
-	if (is_ll && is_dw) { is_ll = x + 1      <= size.y - y; is_dw = size.y - y <= x + 1     ; }
-	if (is_rr && is_up) { is_rr = y + 1      >= size.x - x; is_up = y          <  size.x - x; }
-	if (is_rr && is_dw) { is_rr = size.x - x <= size.y - y; is_dw = size.y - y <= size.x - x; }
-
-	side side = is_ll ? side::ll : is_rr ? side::rr : is_up ? side::up : is_dw ? side::dw : side::no;
-	if (side == side::no) { out[index] = {0, 0, 0, 0}; return; }
-
-	float from_ll{x + .5f};
-	float from_rr{size.x - x - .5f};
-	float from_up{y + .5f};
-	float from_dw{size.y - y - .5f};
-
-	float from_edge{is_ll ? from_ll : is_rr ? from_rr : is_up ? from_up : is_dw ? from_dw : 0.f};
-	float t{from_edge / thickness};
-
-	float v{0.f};
-
-	if (t < .5f)
+	for (const auto& edge : shape.get_edges())
 		{
-		float inner_t{(t * 2.f)};
-		v = sqrt(1 - pow(inner_t - 1, 2));
-		}
-	else
-		{
-		float inner_t{((t - .5f) * 2.f)};
-		v = sqrt(1 - pow(inner_t, 2));
+		float from_edge{utils::math::geometry::distance(edge, coords)};
+		if (from_edge < min) { min = from_edge; closest_edge = edge; }
 		}
 
+	utils::math::geometry::point closest_point{closest_edge.closest_point(coords)};
+	return closest_point - coords;
+	}
+utils::math::vec2f vec_to_closest_edge(const utils::math::vec2f coords, const utils::math::geometry::aabb& shape)
+	{
+	float min{std::numeric_limits<float>::infinity()};
+	utils::math::geometry::segment closest_edge;
 
-	out[index].r = v;
-	out[index].g = v;
-	out[index].b = v;
-	out[index].a = 1.f;
+	if(true)
+		{
+		utils::math::geometry::segment edge{shape.ul(), shape.ur()};
+		float from_edge{utils::math::geometry::distance(edge, coords)};
+		if (from_edge < min) { min = from_edge; closest_edge = edge; }
+		}
+	if (true)
+		{
+		utils::math::geometry::segment edge{shape.ur(), shape.dr()};
+		float from_edge{utils::math::geometry::distance(edge, coords)};
+		if (from_edge < min) { min = from_edge; closest_edge = edge; }
+		}
+	if (true)
+		{
+		utils::math::geometry::segment edge{shape.dr(), shape.dl()};
+		float from_edge{utils::math::geometry::distance(edge, coords)};
+		if (from_edge < min) { min = from_edge; closest_edge = edge; }
+		}
+	if (true)
+		{
+		utils::math::geometry::segment edge{shape.dl(), shape.ul()};
+		float from_edge{utils::math::geometry::distance(edge, coords)};
+		if (from_edge < min) { min = from_edge; closest_edge = edge; }
+		}
+
+	utils::math::geometry::point closest_point{closest_edge.closest_point(coords)};
+	return closest_point - coords;
 	}
 
 template <utils::math::geometry::shape_discrete shape_a_t, utils::math::geometry::shape_discrete shape_b_t>
-void normalized_distance_mask(const size_t index, utils::containers::matrix_dyn<float>& out, const shape_a_t& shape_a, const shape_b_t& shape_b)
+float normalized_distance_mask(const utils::math::vec2f coords, const shape_a_t& shape_a, const shape_b_t& shape_b)
 	{
-	size_t x{out.get_x(index)};
-	size_t y{out.get_x(index)};
-
-	utils::math::vec2f world_coords{out.get_coords(index)};
-
-	float dist_a{utils::math::geometry::distance(world_coords, shape_a)};
-	float dist_b{utils::math::geometry::distance(world_coords, shape_b)};
+	float dist_a{utils::math::geometry::distance(coords, shape_a)};
+	float dist_b{utils::math::geometry::distance(coords, shape_b)};
 
 	float tot_dist{dist_a + dist_b};
 	float proportional_a{dist_a / tot_dist};
 	float proportional_b{dist_b / tot_dist};
 
-	out[index] = proportional_a;
+	return proportional_a;
 	}
 template <utils::math::geometry::shape_discrete shape_a_t>
-void draw_shape(const size_t index, utils::containers::matrix_dyn<float>& out, const shape_a_t& shape)
+float draw_shape(const utils::math::vec2f coords, const shape_a_t& shape)
 	{
-	size_t x{out.get_x(index)};
-	size_t y{out.get_x(index)};
+	float dist{utils::math::geometry::distance(coords, shape)};
 
-	utils::math::vec2f world_coords{out.get_coords(index)};
+	return std::max(1.f - dist, 0.f);
+	}
 
-	float dist{utils::math::geometry::distance(world_coords, shape)};
+sf::Color SFMLify_rgba_f(const utils::graphics::colour::rgba_f& colour)
+	{
+	// turn 0-1 to 0-255
+	uint8_t col_r{static_cast<uint8_t>(colour.r * 255.f)};
+	uint8_t col_g{static_cast<uint8_t>(colour.g * 255.f)};
+	uint8_t col_b{static_cast<uint8_t>(colour.b * 255.f)};
+	uint8_t col_a{static_cast<uint8_t>(colour.a * 255.f)};
 
-	out[index] = std::max(1.f - dist, out[index]);
+	return {col_r, col_g, col_b, col_a};
 	}
 
 int main()
 	{
 	utils::math::vec2s image_size{816, 1100};
-	sf::Image sfimg; sfimg.create(image_size.x, image_size.y);
 
-	utils::containers::matrix_dyn<utils::graphics::colour::rgba_f> a{image_size};
-	utils::containers::matrix_dyn<utils::graphics::colour::rgba_f> b{image_size};
-	utils::containers::matrix_dyn<float> mask{image_size};
-	utils::containers::matrix_dyn<float> shape_a_mask{image_size};
-	utils::containers::matrix_dyn<float> shape_b_mask{image_size};
+	// SFML image only to save to file
+	sf::Image sf_albedo; sf_albedo.create(image_size.x, image_size.y);
+	sf::Image sf_normal; sf_normal.create(image_size.x, image_size.y);
+	sf::Image sf_light ; sf_light .create(image_size.x, image_size.y);
+	sf::Image sf_img   ; sf_img   .create(image_size.x, image_size.y);
 
-	std::ranges::iota_view indices{a.begin(), a.end()};
+	// matrix only for parallel for_each since it doesn't work with ranges::iota :(
+	// not used for actual storage
+	utils::containers::matrix_dyn<utils::graphics::colour::rgba_f> matrix{image_size};
 
+	// some shapes to draw stuff with
 	utils::math::geometry::circle circle_a{.center{image_size / 2}, .radius{128}};
 	utils::math::geometry::circle circle_b{.center{image_size / 2}, .radius{512}};
 	utils::math::geometry::circle circle_d{.center{circle_a.center + 16}, .radius{64}};
 
-	utils::math::geometry::segment sa{.a{20, 20}, .b{20, image_size.x - 40}};
-	utils::math::geometry::segment sb{.a{image_size.x - 40, 20}, .b{image_size.x - 40, image_size.x - 40}};
+	utils::math::geometry::segment sa{.a{20, 20}, .b{20, image_size.y - 40}};
+	utils::math::geometry::segment sb{.a{image_size.x - 40, 20}, .b{image_size.x - 40, image_size.y - 40}};
 	utils::math::geometry::segment sc{.a{sa.a}, .b{sb.b}};
 	utils::math::geometry::segment sd{.a{sb.a}, .b{sa.b}};
 
@@ -118,35 +121,64 @@ int main()
 	utils::math::geometry::point pb{image_size.x - 40, image_size.x - 40};
 
 	const auto& shape_a{circle_a};
-	const auto& shape_b{sd};
+	const auto& shape_b{sc};
+	
+	// pixels at the edge to create a normal map from for lighting
+	float edge_thickness{64.f};
 
-	std::for_each(std::execution::par, a.begin(), a.end(), [&](const auto& element)
+	// direction of the light
+	utils::math::vec3f light_dir{1.f, .5f, 3.f};
+	light_dir.normalize_self();
+
+	// pixel "shader" but I hate shaders languages so I'll do it in C++ lol
+	std::for_each(std::execution::par, matrix.begin(), matrix.end(), [&](const auto& element)
 		{
-		size_t index{static_cast<size_t>(&element - a.data())};
-		//draw_border(index, a, b, 5);
-		normalized_distance_mask(index, mask, shape_a, shape_b);
-		draw_shape(index, shape_a_mask, shape_a);
-		draw_shape(index, shape_b_mask, shape_b);
-		});
+		size_t index{static_cast<size_t>(&element - matrix.data())}; //workaround indicized parallel foreach
+		auto coords{matrix.get_coords(index)};
 
-	std::for_each(std::execution::par, a.begin(), a.end(), [&](const auto& element)
-		{
-		size_t index{static_cast<size_t>(&element - a.data())};
+		// albedo
+		float gradient{normalized_distance_mask(coords, shape_a, shape_b)};
+		float shape_a_value{draw_shape(coords, shape_a)};
+		float shape_b_value{draw_shape(coords, shape_b)};
 
-		auto coords{b.get_coords(index)};
+		utils::graphics::colour::rgba_f albedo{gradient, shape_a_value, shape_b_value, 1.f};
+		sf_albedo.setPixel(coords.x, coords.y, SFMLify_rgba_f(albedo));
+
+		// calc normal vector
+		auto vec2{vec_to_closest_edge(coords, utils::math::geometry::aabb{0.f, 0.f, static_cast<float>(image_size.x), static_cast<float>(image_size.y)})};
+
+		if (vec2.length > edge_thickness) { vec2 = {}; }
+		else
+			{
+			vec2.length = utils::math::easing::ease<utils::math::easing::circ, utils::math::easing::in_out>(vec2.length / edge_thickness);
+			}
 		
-		const float& pixel_v{mask        [index]};
-		const float& pixel_a{shape_a_mask[index]};
-		const float& pixel_b{shape_b_mask[index]};
+		utils::math::vec3f normal{vec2.x, vec2.y, std::sqrt(1.f - (vec2.x * vec2.x) - (vec2.y * vec2.y))};
+		utils::graphics::colour::rgba_f normal_visualizable
+			{
+			(normal.x + 1.f) / 2.f,
+			(normal.y + 1.f) / 2.f,
+			(normal.z + 1.f) / 2.f,
+			1.f
+			};
+		sf_normal.setPixel(coords.x, coords.y, SFMLify_rgba_f({normal_visualizable}));
 
-		uint8_t col_r{static_cast<uint8_t>(pixel_a * 255.f)};
-		uint8_t col_g{static_cast<uint8_t>(pixel_b * 255.f)};
-		uint8_t col_b{static_cast<uint8_t>(pixel_v * 255.f)};
-		uint8_t col_a{static_cast<uint8_t>(255.f)};
+		// lightmap
+		float light{normal <utils::math::operators::dot> light_dir};
+		light = std::clamp(light, 0.f, 1.f); // could do some fancy software-HDR instead
 
-		sf::Color sfcol{col_r, col_g, col_b, col_a};
-		sfimg.setPixel(coords.x, coords.y, sfcol);
+		sf_light.setPixel(coords.x, coords.y, SFMLify_rgba_f(light));
+
+		// apply light to albedo
+		utils::graphics::colour::rgba_f colour{albedo * light};
+		colour.a = 1.f;
+
+		// SFML-ify
+		sf_img.setPixel(coords.x, coords.y, SFMLify_rgba_f(colour));
 		});
 
-	sfimg.saveToFile("out.png");
+	sf_albedo.saveToFile("0_albedo.png");
+	sf_normal.saveToFile("1_normal.png");
+	sf_light .saveToFile("2_light.png" );
+	sf_img   .saveToFile("3_img.png"   );
 	}
