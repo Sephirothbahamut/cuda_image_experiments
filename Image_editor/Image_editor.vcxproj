@@ -11,8 +11,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{7F9A757D-810A-417E-93C8-FDF29CCA37B5}</ProjectGuid>
-    <RootNamespace>CudaRuntime1</RootNamespace>
+    <ProjectGuid>{3B93A4C0-9417-445B-A11E-EF4639F246B7}</ProjectGuid>
+    <RootNamespace>Image_editor</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -31,7 +31,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.0.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.1.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -42,19 +42,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>../../../Libraries\SFML-2.5.1\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+    <IncludePath>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>..\..\..\Libraries\SFML-2.5.1\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LibraryPath>../../../Libraries\SFML-2.5.1\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+    <IncludePath>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>..\..\..\Libraries\SFML-2.5.1\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/D UTILS_NO_ANGLE %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -63,8 +63,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <Include>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;</Include>
-      <AdditionalOptions>-std=c++20 -Xcompiler "/std:c++20 " %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-std=c++20 -Xcompiler "/std:c++20" -DMDSPAN_ENABLE_CUDA=ON --expt-relaxed-constexpr --extended-lambda %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -74,8 +73,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\..\Libraries\SFML\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -86,7 +84,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <Include>..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;</Include>
+      <AdditionalOptions>-std=c++20 -Xcompiler "/std:c++20" -DMDSPAN_ENABLE_CUDA=ON --expt-relaxed-constexpr --extended-lambda %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -94,15 +92,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cuda.h" />
-    <ClInclude Include="matrix.cuh" />
-    <ClInclude Include="vector.cuh" />
-    <ClInclude Include="voronoi.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Source.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.0.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.1.targets" />
   </ImportGroup>
 </Project>

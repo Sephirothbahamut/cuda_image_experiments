@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.4.33122.133
+VisualStudioVersion = 17.4.33213.308
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cuda_image", "cuda_image\cuda_image.vcxproj", "{7F9A757D-810A-417E-93C8-FDF29CCA37B5}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Image_editor", "Image_editor\Image_editor.vcxproj", "{3B93A4C0-9417-445B-A11E-EF4639F246B7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{7F9A757D-810A-417E-93C8-FDF29CCA37B5}.Debug|x64.ActiveCfg = Debug|x64
-		{7F9A757D-810A-417E-93C8-FDF29CCA37B5}.Debug|x64.Build.0 = Debug|x64
-		{7F9A757D-810A-417E-93C8-FDF29CCA37B5}.Release|x64.ActiveCfg = Release|x64
-		{7F9A757D-810A-417E-93C8-FDF29CCA37B5}.Release|x64.Build.0 = Release|x64
+		{3B93A4C0-9417-445B-A11E-EF4639F246B7}.Debug|x64.ActiveCfg = Debug|x64
+		{3B93A4C0-9417-445B-A11E-EF4639F246B7}.Debug|x64.Build.0 = Debug|x64
+		{3B93A4C0-9417-445B-A11E-EF4639F246B7}.Release|x64.ActiveCfg = Release|x64
+		{3B93A4C0-9417-445B-A11E-EF4639F246B7}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {DDB21489-6014-4E16-B9ED-403552FE313C}
+		SolutionGuid = {95507CC1-F089-4EDF-844E-A771CDDE4513}
 	EndGlobalSection
 EndGlobal
