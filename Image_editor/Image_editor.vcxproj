@@ -42,11 +42,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_MS\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>..\..\..\Libraries\SFML-2.5.1\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>..\..\..\Libraries\SFML-2.5.1\include;..\..\..\Libraries\CPP_Utilities\include;..\..\..\Libraries\CPP_Utilities_MS\include;..\..\..\Libraries\CPP_Utilities_CUDA\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>..\..\..\Libraries\SFML-2.5.1\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -55,6 +55,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalOptions>/D "WINDOWS_LEAN_AND_MEAN" /D "NOMINMAX" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -74,6 +75,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <AdditionalOptions>/D "WINDOWS_LEAN_AND_MEAN" /D "NOMINMAX" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -92,8 +94,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cuda.h" />
+    <ClInclude Include="image.h" />
+    <ClInclude Include="noise.h" />
+    <ClInclude Include="text.h" />
+    <ClInclude Include="voronoi.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="c_impls.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
