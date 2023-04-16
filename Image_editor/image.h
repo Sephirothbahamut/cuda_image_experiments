@@ -42,11 +42,28 @@ class image
 		using value_type = T;
 		image(utils::math::vec2s sizes) : vec(sizes.x * sizes.y), mat{sizes, vec} {}
 
+		static image<T> from_file(const std::filesystem::path& file_path)
+			requires std::same_as<T, utils::graphics::colour::rgba_f>
+			{
+			sf::Image sf_image;
+			sf_image.loadFromFile(file_path.string());
+
+			image<T> image{{sf_image.getSize().x, sf_image.getSize().y}};
+
+			for (size_t y{0}; y < image.mat.height(); y++)
+				{
+				for (size_t x{0}; x < image.mat.width(); x++)
+					{
+					image.mat[{x, y}] = rgba_fify_SFML(sf_image.getPixel(x, y));
+					}
+				}
+			return image;
+			}
+
 		std::vector<T> vec;
 		utils::matrix_wrapper<std::vector<T>> mat;
 
 		void save_to_file(const std::string& fname) const noexcept
-			requires utils::graphics::colour::concepts::colour<T>
 			{
 			sf::Image sfimage;
 			sfimage.create(mat.width(), mat.height());
@@ -55,19 +72,29 @@ class image
 				{
 				for (size_t x = 0; x < mat.width(); x++)
 					{
-					if constexpr (std::floating_point<typename T::value_type>)
+					auto value{mat[{x, y}]};
+
+					if constexpr (utils::graphics::colour::concepts::colour<T>)
 						{
-						sfimage.setPixel(x, y, SFMLify_rgba_f(mat[{x, y}]));
+						if constexpr (std::floating_point<typename T::value_type>)
+							{
+							sfimage.setPixel(x, y, SFMLify_rgba_f(value));
+							}
+						else
+							{
+							utils::graphics::colour::rgba_u colour_8bit{value};
+							sfimage.setPixel(x, y, sf::Color{colour_8bit.r, colour_8bit.g, colour_8bit.b, colour_8bit.a});
+							}
 						}
-					else
+					else if constexpr (std::same_as<T, utils::math::vec3f>)
 						{
-						utils::graphics::colour::rgba_u colour_8bit{mat[{x, y}]};
-						sfimage.setPixel(x, y, sf::Color{colour_8bit.r, colour_8bit.g, colour_8bit.b, colour_8bit.a});
+						sfimage.setPixel(x, y, SFMLify_rgba_f(utils::graphics::colour::rgba_f{value.x, value.y, value.z}));
 						}
 					}
 				}
 			sfimage.saveToFile(fname);
 			}
+
 
 	private:
 	};
@@ -90,4 +117,60 @@ void foreach(callback_t callback, utils::math::vec2s sizes, Args&... args)
 		utils::math::vec2s coords{index % sizes.x, index / sizes.x};
 		callback(index, coords, args...);
 		});
+	}
+
+template <typename T>
+image<utils::math::vec3f> normal_from_height(const image<T>& heightmap)
+	{
+	image<utils::math::vec3f> ret{heightmap.mat.sizes()};
+
+	foreach([&](size_t index, utils::math::vec2s coords)
+		{
+		auto get_height{[&](utils::math::vec2i64 signed_coords)
+			{
+			if (signed_coords.x < 0) { signed_coords.x = 0; } else if (signed_coords.x >= heightmap.mat.width ()) { signed_coords.x = heightmap.mat.width () - 1; }
+			if (signed_coords.y < 0) { signed_coords.y = 0; } else if (signed_coords.y >= heightmap.mat.height()) { signed_coords.y = heightmap.mat.height() - 1; }
+			
+			utils::math::vec2s coords{static_cast<size_t>(signed_coords.x), static_cast<size_t>(signed_coords.y)};
+
+			float height{0.f};
+
+			if constexpr (std::same_as<T, float>) { height = heightmap.mat[coords]; }
+			else if constexpr (utils::math::concepts::vec<T>)
+				{
+				for (size_t i{0}; i < T::static_size; i++) { height += heightmap.mat[coords][i]; }
+				height /= static_cast<float>(T::static_size);
+				}
+			else if constexpr (/*utils::graphics::concepts::rgb<T>*/true)
+				{
+				height = heightmap.mat[coords].a;
+				}
+			return height;
+			}};
+
+		float tl{get_height({static_cast<int64_t>(coords.x) - 1, static_cast<int64_t>(coords.y) - 1})}; // top left
+		float  l{get_height({static_cast<int64_t>(coords.x) - 1, static_cast<int64_t>(coords.y)    })}; // left
+		float bl{get_height({static_cast<int64_t>(coords.x) - 1, static_cast<int64_t>(coords.y) + 1})}; // bottom left
+		float  t{get_height({static_cast<int64_t>(coords.x)    , static_cast<int64_t>(coords.y) - 1})}; // top
+		float  b{get_height({static_cast<int64_t>(coords.x)    , static_cast<int64_t>(coords.y) + 1})}; // bottom
+		float tr{get_height({static_cast<int64_t>(coords.x) + 1, static_cast<int64_t>(coords.y) - 1})}; // top right
+		float  r{get_height({static_cast<int64_t>(coords.x) + 1, static_cast<int64_t>(coords.y)    })}; // right
+		float br{get_height({static_cast<int64_t>(coords.x) + 1, static_cast<int64_t>(coords.y) + 1})}; // bottom right
+
+		tl = tl * .2f + l * .4f + t * .4f;
+		bl = bl * .2f + l * .4f + b * .4f;
+		tr = tr * .2f + r * .4f + t * .4f;
+		br = br * .2f + r * .4f + b * .4f;
+
+		// sobel filter
+		const float dX = (tr + 2.f * r + br) - (tl + 2.f * l + bl);
+		const float dY = (bl + 2.f * b + br) - (tl + 2.f * t + tr);
+		const float dZ = 1.f / 1.f;
+
+		utils::math::vec3f n{dX, dY, dZ};
+		n.normalize_self();
+		ret.mat[coords] = n;
+		}, heightmap.mat.sizes());
+
+	return ret;
 	}

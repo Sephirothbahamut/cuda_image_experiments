@@ -58,8 +58,7 @@ namespace effects
 				generator_cellular.SetNoiseType               (FastNoiseLite::NoiseType_Cellular                );
 				generator_cellular.SetCellularDistanceFunction(FastNoiseLite::CellularDistanceFunction_Euclidean);
 				generator_cellular.SetCellularReturnType      (FastNoiseLite::CellularReturnType_Distance2Sub   );
-				generator_cellular.SetFractalType             (FastNoiseLite::FractalType_FBm);
-				generator_cellular.SetFractalOctaves          (2);
+				generator_cellular.SetSeed                    (255);
 
 				generator_value_cubic.SetNoiseType(FastNoiseLite::NoiseType_ValueCubic);
 				generator_value_cubic.SetFractalType(FastNoiseLite::FractalType_Ridged  );
@@ -89,15 +88,15 @@ namespace effects
 				using namespace utils::math::angle::literals;
 
 				utils::math::vec2f noise_offset{generator_offset_x.GetNoise(pos.x, pos.y), generator_offset_y.GetNoise(pos.x, pos.y)};
-				utils::math::vec2f offset_pos {pos + noise_offset * generator_offset_z.GetNoise(pos.x, pos.y) * 16.f};
+				utils::math::vec2f offset_pos {pos + noise_offset * generator_offset_z.GetNoise(pos.x, pos.y) * 12.f};
 				
-				float cellular_value{utils::math::map(-0.9f, 0.1f, 0.f, 1.f, generator_cellular.GetNoise(offset_pos.x, offset_pos.y))};
+				float cellular_value{utils::math::clamp(utils::math::map(-0.9f, -0.7f, 1.f, 0.f, generator_cellular.GetNoise(offset_pos.x, offset_pos.y)), 0.f, 1.f)};
 
-				float fissure_depth{utils::math::map(0.f, .2f, 1.f, 0.f, cellular_value)};
+				float fissure_depth{cellular_value};
 				
 				float ghost{utils::math::map(-.5f, .5f, 0.f, 1.f, generator_ghost.GetNoise(pos.x, pos.y))};
 				
-				float value{utils::math::clamp(fissure_depth * ghost, 0.f, 1.f)};
+				float value{fissure_depth * 2.f};
 				float cubic_value{generator_value_cubic.GetNoise(pos.x * 1.f, pos.y * 1.f)};
 				
 				auto hue{utils::math::lerp(0_deg, 50_deg, cubic_value)};
@@ -105,7 +104,7 @@ namespace effects
 				utils::graphics::colour::hsv<float, false> hsv{.h{hue}, .s{1.f}, .v{1.f}};
 				auto rgb{hsv.rgb()};
 
-				return {hsv.rgb(), value * value};
+				return {rgb.r, rgb.g, rgb.b, 1.2f};
 				}
 
 		private:
@@ -175,144 +174,14 @@ namespace effects
 
 			FastNoiseLite generator_ghost;
 		};
-	}
-
-
-
-
-
-
-void mainz()
-	{
-	std::random_device random_device;
-	std::mt19937 random_generator{random_device()};
-
-	utils::MS::graphics::initializer MS_graphics_initializer;
-
-	using namespace utils::output;
-	utils::math::vec2s sizes{744, 1039};
-	auto image_rect{utils::math::rect<float>::from_possize(utils::math::vec2f{0.f, 0.f}, utils::math::vec2f{static_cast<float>(sizes.x), static_cast<float>(sizes.y)})};
-
-	std::wstring name{L"Hello world!"};
-
-	text::manager text_manager;
-	auto format{text_manager.create_text_format(text::format::create_info
+	
+	class shape
 		{
-		.size{24.f}
-		})};
-
-	::image<utils::graphics::colour::rgba_f> image{sizes};
-	::image<utils::graphics::colour::rgba_f> bright_image{sizes};
-	sf::Image source; 
-	if (!source.loadFromFile("source.png")) 
-		{
-		if (!source.loadFromFile("source.jpg"))
-			{
-			return;
-			}
-		};
-
-#pragma region edges
-	float outline_thickness                { 36.f};
-	float border_outer_radius_and_thickness{ 16.f};
-	float border_inner_radius              { 16.f};
-	float border_inner_top_thickness       {border_inner_radius};
-	float border_inner_bottom_thickness    {border_inner_radius * .5f};
-	float bottom_height                    {256.f}; 
-
-	utils::math::geometry::aabb rect_outline{.ll{0.f}, .up{0.f}, .rr{static_cast<float>(sizes.x)}, .dw{static_cast<float>(sizes.y)}};
-
-	utils::math::geometry::aabb rect_border_outer{rect_outline};
-	rect_border_outer.pos () += outline_thickness;
-	rect_border_outer.size() -= outline_thickness * 2.f;
-
-	utils::math::geometry::aabb rect_border_inner {rect_border_outer};
-	rect_border_inner.pos () += border_outer_radius_and_thickness;
-	rect_border_inner.size() -= border_outer_radius_and_thickness * 2.f;
-
-	utils::math::geometry::aabb border_inner_top_rect{rect_border_inner};
-	border_inner_top_rect.height() -= bottom_height;
-
-	utils::math::geometry::aabb border_inner_bottom_rect{rect_border_inner};
-	border_inner_bottom_rect.height() = bottom_height;
-	border_inner_bottom_rect.y() = border_inner_top_rect.dw;
-
-	utils::math::geometry::aabb rect_hole_top{border_inner_top_rect};
-	rect_hole_top.ll += border_inner_top_thickness;
-	rect_hole_top.up += border_inner_top_thickness;
-	rect_hole_top.rr -= border_inner_top_thickness;
-	rect_hole_top.dw -= border_inner_top_thickness;
-	utils::math::geometry::aabb rect_hole_bottom{border_inner_bottom_rect};
-	rect_hole_bottom.ll += border_inner_bottom_thickness;
-	rect_hole_bottom.up += border_inner_bottom_thickness;
-	rect_hole_bottom.rr -= border_inner_bottom_thickness;
-	rect_hole_bottom.dw -= border_inner_bottom_thickness;
-
-#pragma endregion edges
-
-#pragma region name
-	utils::math::vec2f name_box_inner_size{512.f, 48.f};
-	float name_box_from_top               {32.f};
-	float name_box_border_radius          {12.f};
-	float name_box_border_thickness{name_box_border_radius * .5f};
-	utils::math::vec2f name_box_size{name_box_inner_size + utils::math::vec2f{name_box_border_thickness * 2.f, name_box_border_thickness * 2.f}};
-
-	utils::math::vec2f name_box_center{static_cast<float>(sizes.x) / 2.f, border_inner_top_rect.up + name_box_from_top + (name_box_size.y / 2.f)};
-
-	auto name_box{utils::math::geometry::aabb::from_possize(name_box_center - (name_box_size / 2.f), name_box_size)};
-
-	auto image_name{text_manager.create_text_image(name, format, name_box.size())};
-	utils::math::rect<size_t> image_name_rect{utils::math::rect<size_t>::from_possize
-		(
-		utils::math::vec2s
-			{
-			static_cast<size_t>(name_box_center.x) - (image_name.mat.sizes().x / 2), 
-			static_cast<size_t>(name_box_center.y) - (image_name.mat.sizes().y / 2)
-			},
-		image_name.mat.sizes() - utils::math::vec2s{1, 1}
-		)};
-#pragma endregion name
-
-
-#pragma region light
-	// direction of the light
-	utils::math::vec3f light_dir{1.f, .5f, 3.f};
-	light_dir.normalize_self();
-	float light_intensity{1.1f}; //intensity > 1 makes the scene max colour even with slight angles
-	auto light_source{light_dir * light_intensity};
-#pragma endregion light
-
-	effects::cracked_magma cracked_magma;
-	effects::water         water;
-
-	foreach([&](size_t index, utils::math::vec2s coords, image_mat<utils::graphics::colour::rgba_f>& image)
-		{
-
-		utils::math::vec2f pos{static_cast<float>(coords.x) + .5f, static_cast<float>(coords.y) + .5f};
-		utils::math::vec2f normalized_pos{pos / std::min(image.width(), image.height())};
-
-		//dark outline rounded
-		if (!rect_border_outer.contains(pos))
-			{
-			auto outline_dist{rect_border_outer.distance_min(pos)};
-			auto colour{1 - utils::math::clamp(outline_dist - outline_thickness, 0.f, 1.f)};
-		
-			image[index].r = 0.f;
-			image[index].g = 0.f;
-			image[index].b = 0.f;
-			image[index].a = colour;
-			return;
-			}
-
-		bool is_frame{!rect_hole_top.contains(pos) && !rect_hole_bottom.contains(pos)};
-		bool is_textbox{name_box.contains(pos) || rect_hole_bottom.contains(pos)};
-
-		//normal
-		auto normal{[&]
-			{
-			auto f{[pos](const utils::math::geometry::aabb& rect, float radius, float thickness, bool ascending)
+		public:
+			template <utils::math::geometry::concepts::shape shape_t>
+			static utils::math::vec3f normal(utils::math::vec2f pos, const shape_t& shape, float radius, float thickness, bool ascending)
 				{
-				utils::math::geometry::closest_point_and_distance_t closest_dist{rect.closest_point_and_distance(pos)};
+				utils::math::geometry::closest_point_and_distance_t closest_dist{shape.closest_point_and_distance(pos)};
 				float proportion{closest_dist.distance / radius};
 				utils::math::vec2f to_closest_edge{ascending ? closest_dist.position - pos : pos - closest_dist.position};
 
@@ -331,82 +200,238 @@ void mainz()
 
 				float z{std::sqrt(1.f - (to_closest_edge.x * to_closest_edge.x) - (to_closest_edge.y * to_closest_edge.y))};
 				return utils::math::vec3f{to_closest_edge.x, to_closest_edge.y, z};
-				}};
+				}
+		};
+	}
 
-			if (name_box.contains(pos))
-				{
-				return f(name_box, name_box_border_radius, name_box_border_thickness, false);
-				}
-			else if (border_inner_top_rect.contains(pos))
-				{
-				return f(border_inner_top_rect, border_inner_radius, border_inner_top_thickness, true);
-				}
-			else if (border_inner_bottom_rect.contains(pos))
-				{
-				return f(border_inner_bottom_rect, border_inner_radius, border_inner_bottom_thickness, true);
-				}
-			else
-				{
-				return f(rect_border_outer, border_outer_radius_and_thickness, border_outer_radius_and_thickness, false);
-				}
-			}()};
+
+
+
+
+
+void mainz()
+	{
+	std::random_device random_device;
+	std::mt19937 random_generator{random_device()};
+
+	utils::MS::graphics::initializer MS_graphics_initializer;
+
+	using namespace utils::output;
+	utils::math::vec2s sizes{744, 1039};
+	auto image_rect{utils::math::rect<float>::from_possize(utils::math::vec2f{0.f, 0.f}, utils::math::vec2f{static_cast<float>(sizes.x), static_cast<float>(sizes.y)})};
+
+	::image<utils::graphics::colour::rgba_f> image{sizes};
+	::image<utils::graphics::colour::rgba_f> bright_image{sizes};
+	sf::Image source;
+	if (!source.loadFromFile("source.png"))
+		{
+		if (!source.loadFromFile("source.jpg"))
+			{
+			return;
+			}
+		};
+
+#pragma region reference_measurements
+	float outline_thickness                { 36.f};
+	float border_outer_radius_and_thickness{ 16.f};
+	float border_inner_radius              { 16.f};
+	float border_inner_image_thickness     {border_inner_radius};
+	float border_inner_text_thickness      {border_inner_radius * .5f};
+
+	utils::math::vec2f padding_text_name{16.f, 0.f};
+	utils::math::vec2f padding_text_desc{ 8.f, 8.f};
+#pragma endregion reference_measurements
+
+#pragma region text
+	std::wstring text_name{L"Fiery Phoenix"};
+	std::wstring text_desc{L"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."};
+	
+	text::manager text_manager;
+	auto text_format_name{text_manager.create_text_format(text::format::create_info
+		{
+		.size{36.f},
+		.weight{DWRITE_FONT_WEIGHT_BOLD}
+		})};
+	auto text_format_desc{text_manager.create_text_format(text::format::create_info
+		{
+		.size{16.f}
+		})};
+
+	float max_text_width{sizes.x - ((outline_thickness + border_outer_radius_and_thickness + border_inner_text_thickness) * 2.f)};
+	auto image_text_name{text_manager.create_text_image(text_name, text_format_name, utils::graphics::colour::rgba_f{1.f, 0.84f, 0.f}, {max_text_width - (padding_text_name.x * 2.f),  64.f})};
+	//auto image_text_name{text_manager.create_text_image(text_name, text_format_name, utils::graphics::colour::rgba_f{0.f, 0.6f, 1.f}, {max_text_width - (padding_text_name.x * 2.f),  64.f})};
+	auto image_text_desc{text_manager.create_text_image(text_desc, text_format_desc, utils::graphics::colour::base::white, {max_text_width - (padding_text_desc.x * 2.f), 512.f})};
+
+	auto image_normal_text_name{normal_from_height(image_text_name)};
+
+
+#pragma endregion text
+
+#pragma region edges
+	float bottom_height = static_cast<float>(image_text_desc.mat.height());
+
+	utils::math::geometry::aabb rect_outline{.ll{0.f}, .up{0.f}, .rr{static_cast<float>(sizes.x)}, .dw{static_cast<float>(sizes.y)}};
+
+	utils::math::geometry::aabb shape_border_outer_begin{rect_outline};
+	shape_border_outer_begin.pos () += outline_thickness;
+	shape_border_outer_begin.size() -= outline_thickness * 2.f;
+
+	utils::math::geometry::aabb shape_border_outer_end{shape_border_outer_begin};
+	shape_border_outer_end.pos () += border_outer_radius_and_thickness;
+	shape_border_outer_end.size() -= border_outer_radius_and_thickness * 2.f;
+	
+	utils::math::geometry::aabb shape_border_inner_text_begin
+		{
+		.ll{shape_border_outer_end.ll},
+		.up{shape_border_outer_end.dw - (border_inner_text_thickness + padding_text_desc.y + image_text_desc.mat.height() + padding_text_desc.y + border_inner_text_thickness)},
+		.rr{shape_border_outer_end.rr},
+		.dw{shape_border_outer_end.dw}
+		};
+	utils::math::geometry::aabb shape_border_inner_text_end{shape_border_inner_text_begin};
+	shape_border_inner_text_end.pos () += border_inner_text_thickness;
+	shape_border_inner_text_end.size() -= border_inner_text_thickness * 2.f;
+
+	utils::math::geometry::polygon shape_border_inner_image_begin
+		{
+			{shape_border_outer_end.ll, shape_border_outer_end.up + padding_text_name.y + image_text_name.mat.height() + padding_text_name.y},
+			{shape_border_outer_end.ll + padding_text_name.x + image_text_name.mat.width() + padding_text_name.x, shape_border_outer_end.up + padding_text_name.y + image_text_name.mat.height() + padding_text_name.y},
+			{shape_border_outer_end.ll + padding_text_name.x + image_text_name.mat.width() + padding_text_name.x + padding_text_name.x, shape_border_outer_end.up},
+			{shape_border_outer_end.ur()},
+			{shape_border_outer_end.rr, shape_border_inner_text_begin.up},
+			{shape_border_outer_end.ll, shape_border_inner_text_begin.up}
+		};
+	utils::math::geometry::polygon shape_border_inner_image_end
+		{
+			{shape_border_inner_image_begin.get_vertices()[0] + utils::math::vec2f{ border_inner_image_thickness,  border_inner_image_thickness}},
+			{shape_border_inner_image_begin.get_vertices()[1] + utils::math::vec2f{ border_inner_image_thickness,  border_inner_image_thickness}},
+			{shape_border_inner_image_begin.get_vertices()[2] + utils::math::vec2f{ border_inner_image_thickness,  border_inner_image_thickness}},
+
+			{shape_border_inner_image_begin.get_vertices()[3] + utils::math::vec2f{-border_inner_image_thickness,  border_inner_image_thickness}},
+			{shape_border_inner_image_begin.get_vertices()[4] + utils::math::vec2f{-border_inner_image_thickness, -border_inner_image_thickness}},
+			{shape_border_inner_image_begin.get_vertices()[5] + utils::math::vec2f{ border_inner_image_thickness, -border_inner_image_thickness}}
+		};
+#pragma endregion edges
+
+#pragma region locations
+	utils::math::vec2s coords_image_text_name{static_cast<size_t>(shape_border_outer_end     .ll + padding_text_name.x), static_cast<size_t>(shape_border_outer_end     .up + padding_text_name.y)};
+	utils::math::vec2s coords_image_text_desc{static_cast<size_t>(shape_border_inner_text_end.ll + padding_text_desc.x), static_cast<size_t>(shape_border_inner_text_end.up + padding_text_desc.y)};
+#pragma endregion locations
+
+#pragma region light
+	// direction of the light
+	utils::math::vec3f light_dir{1.f, .5f, 3.f};
+	light_dir.normalize_self();
+	float light_intensity{1.0f}; //intensity > 1 makes the scene max colour even with slight angles
+	auto light_source{light_dir * light_intensity};
+#pragma endregion light
+
+#pragma region effects
+	effects::cracked_magma cracked_magma;
+	effects::water         water;
+#pragma endregion effects
+
+	foreach([&](size_t index, utils::math::vec2s coords, image_mat<utils::graphics::colour::rgba_f>& image)
+		{
+		utils::math::vec2f pos{static_cast<float>(coords.x) + .5f, static_cast<float>(coords.y) + .5f};
+		utils::math::vec2f normalized_pos{pos / std::min(image.width(), image.height())};
+
+		bool is_outline{rect_outline.contains(pos) && !shape_border_outer_begin.contains(pos)};
+
+		bool is_border_outer{shape_border_outer_begin.contains(pos) && !shape_border_outer_end.contains(pos)};
+
+		bool is_border_body {shape_border_outer_end.contains(pos) && !shape_border_inner_image_begin.contains(pos) && !shape_border_inner_text_begin.contains(pos)};
+
+		bool is_border_inner_image{shape_border_inner_image_begin.contains(pos) && !shape_border_inner_image_end.contains(pos)};
+		bool is_border_inner_text {shape_border_inner_text_begin .contains(pos) && !shape_border_inner_text_end .contains(pos)};
+
+		bool is_border_inner{is_border_inner_image || is_border_inner_text};
+
+		bool is_border{is_border_outer || is_border_body || is_border_inner};
+		
+		bool is_image  {shape_border_inner_image_end.contains(pos)};
+		bool is_textbox{shape_border_inner_text_end.contains(pos)};
+
+		//dark outline rounded
+		if (is_outline)
+			{
+			auto outline_dist{shape_border_outer_begin.distance_min(pos)};
+			auto colour{1 - utils::math::clamp(outline_dist - outline_thickness, 0.f, 1.f)};
+		
+			image[index].r = 0.f;
+			image[index].g = 0.f;
+			image[index].b = 0.f;
+			image[index].a = colour;
+			return;
+			}
+
+		//normal
+		utils::math::vec3f normal{0.f, 0.f, 1.f};
+
+		if (is_border_outer)
+			{
+			normal = effects::shape::normal(pos, shape_border_outer_begin, border_outer_radius_and_thickness, border_outer_radius_and_thickness, false);
+			}
+		else if (is_border_inner_image)
+			{
+			normal = effects::shape::normal(pos, shape_border_inner_image_begin, border_inner_radius, border_inner_image_thickness, true);
+			}
+		else if (is_border_inner_text)
+			{
+			normal = effects::shape::normal(pos, shape_border_inner_text_begin, border_inner_text_thickness, border_inner_text_thickness, true);
+			}
 
 		//background
-		auto water_background = water(pos);
-		image[index] = water_background;
-		/*//picture in frame
-		if (rect_hole_top.contains(pos))
-			{
-			image[index] = {0.f};
-			auto source_pos{coords - rect_hole_top.ul()};
-			if(source_pos.x < source.getSize().x && source_pos.y < source.getSize().y)
-				{
-				auto sf_col{source.getPixel(source_pos.x, source_pos.y)};
-				image[index] = rgba_fify_SFML(sf_col);
-				}
-			}
+		auto background{cracked_magma(pos)};
 		
-		/*///full art
+		image[index] = background;
+
+		if (is_image)
+			{
+			image[index].r /= 2.f;
+			image[index].g /= 2.f;
+			image[index].b /= 2.f;
+			}
+
 		if(coords.x < source.getSize().x && coords.y < source.getSize().y)
 			{
 			auto sf_col{source.getPixel(coords.x, coords.y)};
-			image[index] = rgba_fify_SFML(sf_col);
-			}/**/
+			image[index] = image[index].blend(rgba_fify_SFML(sf_col));
+			}
 
-		if (is_frame)
+		if (is_border)
 			{
 			for (size_t i{0}; i < 4; i++)
 				{
-				image[index][i] = utils::math::lerp(image[index][i], water_background[i], .3f);
+				image[index][i] = utils::math::lerp(image[index][i], background[i], .5f);
 				}
 			}
+
 		if (is_textbox)
 			{
-			auto hsv{image[index].hsv()};
-			hsv.s /= 2.f;
-			hsv.v /= 2.f;
-
-			image[index] = hsv.rgb();
-
-			for (size_t i{0}; i < 4; i++)
-				{
-				image[index][i] = utils::math::lerp(image[index][i], water_background[i], .3f);
-				}
-
-			hsv = image[index].hsv();
-			hsv.s /= 1.2f;
-			hsv.v /= 4.f;
-
-			image[index] = hsv.rgb();
+			image[index].r /= 3.f;
+			image[index].g /= 3.f;
+			image[index].b /= 3.f;
 			}
 
-		//text
-		if (image_name_rect.contains(coords))
+		//texts
+		if (coords.x > coords_image_text_name.x && coords.y > coords_image_text_name.y)
 			{
-			auto image_name_coords{coords - image_name_rect.ul()};
-			image[index].r = utils::math::clamp(image[index].r + image_name.mat[image_name_coords].r, 0.f, 1.f);
-			image[index].g = utils::math::clamp(image[index].g + image_name.mat[image_name_coords].g, 0.f, 1.f);
-			image[index].b = utils::math::clamp(image[index].b + image_name.mat[image_name_coords].b, 0.f, 1.f);
+			utils::math::vec2s tmp_coords{coords - coords_image_text_name};
+			if (image_text_name.mat.is_valid_index(tmp_coords))
+				{
+				image[coords] = image[coords].blend(image_text_name.mat[tmp_coords]);
+
+				normal += image_normal_text_name.mat[tmp_coords];
+				if (normal.z > 1.f) { normal.z = 1.f; }
+				}
+			}
+		if (coords.x > coords_image_text_desc.x && coords.y > coords_image_text_desc.y)
+			{
+			utils::math::vec2s tmp_coords{coords - coords_image_text_desc};
+			if (image_text_desc.mat.is_valid_index(tmp_coords))
+				{
+				image[coords] = image[coords].blend(image_text_desc.mat[tmp_coords]);
+				}
 			}
 
 
@@ -422,6 +447,16 @@ void mainz()
 		image[index].g *= intensity;
 		image[index].b *= intensity;
 		image[index].a = 1.f;
+
+		//for phoenix, make right side wing overlap the border
+		if (coords.x > shape_border_inner_image_end.get_vertices()[0].x && coords.y < shape_border_inner_image_end.get_vertices()[4].y)
+			{
+			auto sf_col{source.getPixel(coords.x, coords.y)};
+			image[index] = image[index].blend(rgba_fify_SFML(sf_col));
+			}
+
+
+
 
 		bright_image.mat[index].r = image[index].r > 1.f ? image[index].r : 0.f;
 		bright_image.mat[index].g = image[index].g > 1.f ? image[index].g : 0.f;

@@ -2,6 +2,10 @@
 log.txt
 vulkan_log.txt
 
+*.png
+*.jpg
+*.pdn
+
 ## CUSTOM END ##
 
 ## Ignore Visual Studio temporary files, build results, and
