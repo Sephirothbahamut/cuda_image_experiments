@@ -45,7 +45,9 @@ namespace utils::CUDA
 		template <typename ...Args>
 		void operator()(Args&&... args) const noexcept
 			{
+#ifndef __INTELLISENSE__
 			device_function<<<blocks_n, threads_n, smem_size>>>(std::forward<Args>(args)...);
+#endif
 			}
 		};
 	}

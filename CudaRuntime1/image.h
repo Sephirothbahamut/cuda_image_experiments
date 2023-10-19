@@ -72,31 +72,43 @@ class image
 				{
 				for (size_t x = 0; x < mat.width(); x++)
 					{
-					auto value{mat[{x, y}]};
-
-					if constexpr (utils::graphics::colour::concepts::colour<T>)
-						{
-						if constexpr (std::floating_point<typename T::value_type>)
-							{
-							sfimage.setPixel(x, y, SFMLify_rgba_f(value));
-							}
-						else
-							{
-							utils::graphics::colour::rgba_u colour_8bit{value};
-							sfimage.setPixel(x, y, sf::Color{colour_8bit.r, colour_8bit.g, colour_8bit.b, colour_8bit.a});
-							}
-						}
-					else if constexpr (std::same_as<T, utils::math::vec3f>)
-						{
-						sfimage.setPixel(x, y, SFMLify_rgba_f(utils::graphics::colour::rgba_f{value.x, value.y, value.z}));
-						}
+					sfimage.setPixel(x, y, eval_pixel(utils::math::vec2s{x, y}));
 					}
 				}
 			sfimage.saveToFile(fname);
 			}
 
-
 	private:
+		sf::Color eval_pixel(utils::math::vec2s coords) const noexcept
+			{
+			auto value{mat[coords]};
+
+			if constexpr (utils::graphics::colour::concepts::colour<T>)
+				{
+				if constexpr (std::floating_point<typename T::value_type>)
+					{
+					return SFMLify_rgba_f(value);
+					}
+				else
+					{
+					utils::graphics::colour::rgba_u colour_8bit{value};
+					return sf::Color{colour_8bit.r, colour_8bit.g, colour_8bit.b, colour_8bit.a};
+					}
+				}
+			else if constexpr (std::same_as<T, utils::math::vec3f>)
+				{
+				return SFMLify_rgba_f(utils::graphics::colour::rgba_f{value.x, value.y, value.z});
+				}
+			else if constexpr (std::same_as<T, float>)
+				{
+				return SFMLify_rgba_f({value});
+				}
+			else if constexpr (std::same_as<T, bool>)
+				{
+				return sf::Color{value ? 255u : 0u, value ? 255u : 0u, value ? 255u : 0u, 255u};
+				}
+			else { std::unreachable(); }
+			}
 	};
 
 template <typename T>

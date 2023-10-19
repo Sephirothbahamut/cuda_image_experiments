@@ -14,6 +14,8 @@
 #include "voronoi.h"
 #include "noise.h"
 
+#include "Header.cuh"
+
 namespace funcs
 	{
 	void position(size_t index, utils::math::vec2s coords, image_mat<utils::math::vec2f>& out)
@@ -37,8 +39,11 @@ namespace funcs
 
 void mainz();
 
+
 int main()
 	{
+	test_func();
+
 	try { mainz(); }
 	catch (const std::exception e) { std::cout << e.what(); }
 	return 0;
@@ -50,6 +55,75 @@ int main()
 
 namespace effects
 	{
+	class dark_magma
+		{
+		public:
+			dark_magma() noexcept
+				{
+				generator_cellular.SetNoiseType(FastNoiseLite::NoiseType_Cellular);
+				generator_cellular.SetCellularDistanceFunction(FastNoiseLite::CellularDistanceFunction_Euclidean);
+				generator_cellular.SetCellularReturnType(FastNoiseLite::CellularReturnType_Distance2Sub);
+				generator_cellular.SetSeed(255);
+
+				generator_value_cubic.SetNoiseType(FastNoiseLite::NoiseType_ValueCubic);
+				generator_value_cubic.SetFractalType(FastNoiseLite::FractalType_Ridged);
+
+				generator_offset_x.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2S);
+				generator_offset_x.SetFractalType(FastNoiseLite::FractalType_FBm);
+				generator_offset_x.SetFrequency(0.03f);
+				generator_offset_x.SetSeed(0);
+
+				generator_offset_y.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2S);
+				generator_offset_y.SetFractalType(FastNoiseLite::FractalType_FBm);
+				generator_offset_y.SetFrequency(0.03f);
+				generator_offset_y.SetSeed(3);
+
+				generator_offset_y.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2S);
+				generator_offset_y.SetFractalType(FastNoiseLite::FractalType_FBm);
+				generator_offset_y.SetFrequency(0.03f);
+				generator_offset_y.SetSeed(6);
+
+				generator_ghost.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+				generator_ghost.SetFractalType(FastNoiseLite::FractalType_FBm);
+				generator_ghost.SetFrequency(0.005f);
+				generator_ghost.SetFractalOctaves(6);
+				}
+			utils::graphics::colour::rgba_f operator()(utils::math::vec2f pos) const noexcept
+				{
+				using namespace utils::math::angle::literals;
+
+				utils::math::vec2f noise_offset{generator_offset_x.GetNoise(pos.x, pos.y), generator_offset_y.GetNoise(pos.x, pos.y)};
+				utils::math::vec2f offset_pos{pos + noise_offset * generator_offset_z.GetNoise(pos.x, pos.y) * 12.f};
+
+				float cellular_value{utils::math::clamp(utils::math::map(-0.9f, -0.7f, 1.f, 0.f, generator_cellular.GetNoise(offset_pos.x, offset_pos.y)), 0.f, 1.f)};
+
+				float fissure_depth{cellular_value};
+
+				float ghost{utils::math::map(-.5f, .5f, 0.f, 1.f, generator_ghost.GetNoise(pos.x, pos.y))};
+
+				float value{fissure_depth * 2.f};
+				float cubic_value{generator_value_cubic.GetNoise(pos.x * 1.f, pos.y * 1.f)};
+
+				auto hue{utils::math::lerp(80_deg, 100_deg, cubic_value)};
+
+				utils::graphics::colour::hsv<float, false> hsv{.h{hue}, .s{.1f}, .v{cubic_value * .1f}};
+				auto rgb{hsv.rgb()};
+
+				return {rgb.r, rgb.g, rgb.b, 1.2f};
+				}
+
+		private:
+			FastNoiseLite generator_cellular;
+
+			FastNoiseLite generator_value_cubic;
+
+			FastNoiseLite generator_offset_x;
+			FastNoiseLite generator_offset_y;
+			FastNoiseLite generator_offset_z;
+
+			FastNoiseLite generator_ghost;
+		};
+
 	class cracked_magma
 		{
 		public:
@@ -157,7 +231,7 @@ namespace effects
 				float clamped_intensity{utils::math::clamp(intensity, 0.f, 1.f)};
 
 				float hue = utils::math::map(0.f, 1.f, 240.f/*blue*/, 180.f/*cyan*/, clamped_intensity);
-				utils::math::angle::deg hue_deg{hue};
+				utils::math::angle::degf hue_deg{hue};
 
 				float saturation{1.f - intensity};
 				float value{utils::math::clamp(.5f + (intensity / 2.f), 0.f, 1.f)};
@@ -204,11 +278,6 @@ namespace effects
 		};
 	}
 
-
-
-
-
-
 void mainz()
 	{
 	std::random_device random_device;
@@ -222,6 +291,9 @@ void mainz()
 
 	::image<utils::graphics::colour::rgba_f> image{sizes};
 	::image<utils::graphics::colour::rgba_f> bright_image{sizes};
+	::image<float> image_foil_mask{sizes};
+	::image<utils::graphics::colour::rgba_f> image_unreal{sizes};
+
 	sf::Image source;
 	if (!source.loadFromFile("source.png"))
 		{
@@ -243,8 +315,14 @@ void mainz()
 #pragma endregion reference_measurements
 
 #pragma region text
-	std::wstring text_name{L"Fiery Phoenix"};
-	std::wstring text_desc{L"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."};
+	std::wstring text_name{L"Red-Eyes Darkness Metal Dragon"};
+	std::vector<std::wstring> text_descs
+		{
+		L"You can Special Summon this card (from your hand) by banishing 1 face-up Dragon monster you control. You can only Special Summon \"Red-Eyes Darkness Metal Dragon\" once per turn this way.\nDuring your Main Phase: You can Special Summon 1 Dragon monster from your hand or GY, except \"Red-Eyes Darkness Metal Dragon\". You can only use this effect of \"Red-Eyes Darkness Metal Dragon\" once per turn."
+		//L"Charge 3: deal 5 damage to your opponent.",
+		//L"Reaction: something and something else, then something else else.",
+		//L"Activation: if your name is Michael, you win the game."
+		};
 	
 	text::manager text_manager;
 	auto text_format_name{text_manager.create_text_format(text::format::create_info
@@ -258,9 +336,38 @@ void mainz()
 		})};
 
 	float max_text_width{sizes.x - ((outline_thickness + border_outer_radius_and_thickness + border_inner_text_thickness) * 2.f)};
-	auto image_text_name{text_manager.create_text_image(text_name, text_format_name, utils::graphics::colour::rgba_f{1.f, 0.84f, 0.f}, {max_text_width - (padding_text_name.x * 2.f),  64.f})};
-	//auto image_text_name{text_manager.create_text_image(text_name, text_format_name, utils::graphics::colour::rgba_f{0.f, 0.6f, 1.f}, {max_text_width - (padding_text_name.x * 2.f),  64.f})};
-	auto image_text_desc{text_manager.create_text_image(text_desc, text_format_desc, utils::graphics::colour::base::white, {max_text_width - (padding_text_desc.x * 2.f), 512.f})};
+	auto image_text_name{text_manager.create_text_image(text_name, text_format_name, utils::graphics::colour::/*base::white/*/rgba_f{1.f, 0.84f, 0.f}/**/, {max_text_width - (padding_text_name.x * 2.f),  64.f})};
+
+	std::vector<::image<utils::graphics::colour::rgba_f>> image_text_descs;
+	for (const auto& text_desc : text_descs)
+		{
+		image_text_descs.emplace_back(text_manager.create_text_image(text_desc, text_format_desc, utils::graphics::colour::base::white, {max_text_width - (padding_text_desc.x * 2.f), 512.f}));
+		}
+
+	auto image_text_desc_test{text_manager.create_text_image(text_descs[0], text_format_desc, utils::graphics::colour::base::white, {max_text_width - (padding_text_desc.x * 2.f), 512.f})};
+	auto image_text_desc_test2{image_text_desc_test};
+	if (image_text_desc_test.vec.size() != image_text_descs[0].vec.size())
+		{
+		std::cout << ":(";
+		}
+	if (image_text_desc_test.mat.size() != image_text_descs[0].mat.size())
+		{
+		std::cout << ":(";
+		}
+	if (image_text_desc_test.mat.sizes() != image_text_descs[0].mat.sizes())
+		{
+		std::cout << ":(";
+		}
+	for (size_t i = 0; i < image_text_desc_test.vec.size(); i++)
+		{
+		if (image_text_desc_test.vec[i].r != image_text_desc_test2.vec[i].r ||
+			image_text_desc_test.vec[i].g != image_text_desc_test2.vec[i].g ||
+			image_text_desc_test.vec[i].b != image_text_desc_test2.vec[i].b ||
+			image_text_desc_test.vec[i].a != image_text_desc_test2.vec[i].a)
+			{
+			std::cout << ":(";
+			}
+		}
 
 	auto image_normal_text_name{normal_from_height(image_text_name)};
 
@@ -268,7 +375,12 @@ void mainz()
 #pragma endregion text
 
 #pragma region edges
-	float bottom_height = static_cast<float>(image_text_desc.mat.height());
+
+	float text_descs_height{padding_text_desc.y};
+	for (const auto& image_text_desc : image_text_descs)
+		{
+		text_descs_height += static_cast<float>(image_text_desc.mat.height()) + padding_text_desc.y;
+		}
 
 	utils::math::geometry::aabb rect_outline{.ll{0.f}, .up{0.f}, .rr{static_cast<float>(sizes.x)}, .dw{static_cast<float>(sizes.y)}};
 
@@ -283,7 +395,7 @@ void mainz()
 	utils::math::geometry::aabb shape_border_inner_text_begin
 		{
 		.ll{shape_border_outer_end.ll},
-		.up{shape_border_outer_end.dw - (border_inner_text_thickness + padding_text_desc.y + image_text_desc.mat.height() + padding_text_desc.y + border_inner_text_thickness)},
+		.up{shape_border_outer_end.dw - (border_inner_text_thickness + text_descs_height + border_inner_text_thickness)},
 		.rr{shape_border_outer_end.rr},
 		.dw{shape_border_outer_end.dw}
 		};
@@ -327,8 +439,11 @@ void mainz()
 
 #pragma region effects
 	effects::cracked_magma cracked_magma;
+	effects::dark_magma    dark_magma;
 	effects::water         water;
 #pragma endregion effects
+
+
 
 	foreach([&](size_t index, utils::math::vec2s coords, image_mat<utils::graphics::colour::rgba_f>& image)
 		{
@@ -361,6 +476,14 @@ void mainz()
 			image[index].g = 0.f;
 			image[index].b = 0.f;
 			image[index].a = colour;
+
+			//for phoenix, make right side wing overlap the border
+			//if (coords.x > shape_border_inner_image_end.get_vertices()[0].x && coords.y < shape_border_inner_image_end.get_vertices()[4].y)
+			//	{
+			//	auto sf_col{source.getPixel(coords.x, coords.y)};
+			//	image[index] = image[index].blend(rgba_fify_SFML(sf_col));
+			//	}
+
 			return;
 			}
 
@@ -381,8 +504,8 @@ void mainz()
 			}
 
 		//background
-		auto background{cracked_magma(pos)};
-		
+		auto background{dark_magma(pos)};
+
 		image[index] = background;
 
 		if (is_image)
@@ -390,12 +513,21 @@ void mainz()
 			image[index].r /= 2.f;
 			image[index].g /= 2.f;
 			image[index].b /= 2.f;
+			image_foil_mask.mat[index] = 1.f;
 			}
 
+		//image
 		if(coords.x < source.getSize().x && coords.y < source.getSize().y)
 			{
 			auto sf_col{source.getPixel(coords.x, coords.y)};
-			image[index] = image[index].blend(rgba_fify_SFML(sf_col));
+			auto source_col{rgba_fify_SFML(sf_col)};
+
+			image[index] = image[index].blend(source_col);
+
+			if (is_image)
+				{
+				image_foil_mask.mat[index] -= source_col.a;
+				}
 			}
 
 		if (is_border)
@@ -408,12 +540,15 @@ void mainz()
 
 		if (is_textbox)
 			{
-			image[index].r /= 3.f;
-			image[index].g /= 3.f;
-			image[index].b /= 3.f;
+			auto hsv{image[index].hsv()};
+			hsv.v = utils::math::clamp(hsv.v, 0.f, 1.f);
+			//hsv.v = utils::math::map(0.f, 1.f, .99f, 1.f, hsv.v);
+			hsv.v = utils::math::map(0.f, 1.f, 0.f, .4f, hsv.v);
+			hsv.s *= .3f;
+			image[index] = hsv.rgb();
 			}
 
-		//texts
+		//name
 		if (coords.x > coords_image_text_name.x && coords.y > coords_image_text_name.y)
 			{
 			utils::math::vec2s tmp_coords{coords - coords_image_text_name};
@@ -423,17 +558,10 @@ void mainz()
 
 				normal += image_normal_text_name.mat[tmp_coords];
 				if (normal.z > 1.f) { normal.z = 1.f; }
-				}
-			}
-		if (coords.x > coords_image_text_desc.x && coords.y > coords_image_text_desc.y)
-			{
-			utils::math::vec2s tmp_coords{coords - coords_image_text_desc};
-			if (image_text_desc.mat.is_valid_index(tmp_coords))
-				{
-				image[coords] = image[coords].blend(image_text_desc.mat[tmp_coords]);
-				}
-			}
 
+				image_foil_mask.mat[index] = image_text_name.mat[tmp_coords].a;
+				}
+			}
 
 		//lightmap
 		float intensity{[normal, light_source]
@@ -442,21 +570,35 @@ void mainz()
 			return std::clamp(tmp, 0.f, 1.f); // could do some fancy software-HDR instead
 			}()};
 
-
 		image[index].r *= intensity;
 		image[index].g *= intensity;
 		image[index].b *= intensity;
 		image[index].a = 1.f;
 
 		//for phoenix, make right side wing overlap the border
-		if (coords.x > shape_border_inner_image_end.get_vertices()[0].x && coords.y < shape_border_inner_image_end.get_vertices()[4].y)
+		//if (coords.x > shape_border_inner_image_end.get_vertices()[0].x && coords.y < shape_border_inner_image_end.get_vertices()[4].y)
+		//	{
+		//	auto sf_col{source.getPixel(coords.x, coords.y)};
+		//	image[index] = image[index].blend(rgba_fify_SFML(sf_col));
+		//	}
+
+		//description
+		if (coords.x > coords_image_text_desc.x && coords.y > coords_image_text_desc.y)
 			{
-			auto sf_col{source.getPixel(coords.x, coords.y)};
-			image[index] = image[index].blend(rgba_fify_SFML(sf_col));
+			utils::math::vec2s tmp_coords{coords - coords_image_text_desc};
+
+			//for (const auto& image_text_desc : image_text_descs)
+			//	{
+			//	if (image_text_desc.mat.is_valid_index(tmp_coords))
+			//		{
+			//		image[coords] = image[coords].blend(image_text_desc.mat[tmp_coords]);
+			//		}
+			//	}
+			if (image_text_desc_test.mat.is_valid_index(tmp_coords))
+				{
+				image[coords] = image[coords].blend(image_text_desc_test.mat[tmp_coords]);
+				}
 			}
-
-
-
 
 		bright_image.mat[index].r = image[index].r > 1.f ? image[index].r : 0.f;
 		bright_image.mat[index].g = image[index].g > 1.f ? image[index].g : 0.f;
@@ -476,6 +618,15 @@ void mainz()
 
 		}, sizes, image.mat);
 
+	foreach([&](size_t index, utils::math::vec2s coords, image_mat<utils::graphics::colour::rgba_f>& image)
+		{
+		image_unreal.mat[index].r = image[index].r;
+		image_unreal.mat[index].g = image[index].g;
+		image_unreal.mat[index].b = image[index].b;
+		image_unreal.mat[index].a = image_foil_mask.mat[index];
+		}, sizes, image.mat);
 
-	image.save_to_file("hello.png");
+	image.save_to_file("export_print.png");
+	image_unreal.save_to_file("export_unreal_engine.png");
+	image_foil_mask.save_to_file("export_foil_mask.png");
 	}
